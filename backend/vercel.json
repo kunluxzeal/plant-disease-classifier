@@ -1,0 +1,14 @@
+{
+  "functions": {
+    "app.py": {
+      "runtime": "python@3.9",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/app.py"
+    }
+  ]
+}
