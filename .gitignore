@@ -1,0 +1,29 @@
+# 1. API Keys & Secrets (CRITICAL - NEVER COMMIT)
+.env
+*.env
+.env.local
+secrets.toml
+credentials.json
+api_keys.json
+
+# Streamlit secrets file
+frontend/.streamlit/secrets.toml
+.streamlit/secrets.toml
+
+# All virtual environments
+venv/
+backend/venv/
+frontend/venv/
+env/
+ENV/
+*.venv/
+venv*/
+.virtualenv/
+virtualenv/
+pip-selfcheck.json
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version

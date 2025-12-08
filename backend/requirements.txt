@@ -1,0 +1,15 @@
+fastapi
+mangum
+numpy
+pillow
+tensorflow
+openai
+python-dotenv
+elevenlabs
+pydub
+python-multipart
+boto3
+requests
+pandas
+plotly
+

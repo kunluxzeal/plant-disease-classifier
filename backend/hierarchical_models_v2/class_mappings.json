@@ -1,0 +1,31 @@
+{
+  "plant_types": [
+    "Potato",
+    "Tomato",
+    "pepper",
+    "unknown"
+  ],
+  "disease_classes": {
+    "Potato": [
+      "Potato Early Blight",
+      "Potato Healthy Leaf",
+      "Potato Late Blight"
+    ],
+    "Tomato": [
+      "Tomato EarlyBlight",
+      "Tomato Healthy Leaf",
+      "Tomato Late Blight"
+    ],
+    "pepper": [
+      "Bell Pepper Bacterial Spot",
+      "Bell Pepper Healthy"
+    ],
+    "unknown": [
+      "not_plants",
+      "unknown_plant"
+    ]
+  },
+  "tensorflow_version": "2.16.1",
+  "image_size": 256,
+  "model_architecture": "MobileNetV2_with_functional_API"
+}
