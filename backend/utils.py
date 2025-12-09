@@ -227,6 +227,22 @@ import tempfile
 import requests
 from io import BytesIO
 
+# Add at top of utils.py
+import sys
+
+# Mock pydub if not available
+class MockPydub:
+    class AudioSegment:
+        @staticmethod
+        def from_file(path):
+            class MockExport:
+                def export(self, *args, **kwargs):
+                    return None
+            return MockExport()
+
+sys.modules['pydub'] = MockPydub()
+sys.modules['pydub.AudioSegment'] = MockPydub.AudioSegment
+
 load_dotenv()
 
 # Initialize API keys
