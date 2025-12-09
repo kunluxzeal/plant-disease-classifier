@@ -656,7 +656,7 @@ def get_or_create_vector_store():
     return new_store.id
 
 # Dynamically fetch/create
-VECTOR_STORE_ID = get_or_create_vector_store()
+VECTOR_STORE_ID = None
 
 def extract_text_from_response(response):
     """
