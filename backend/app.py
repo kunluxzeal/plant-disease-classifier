@@ -45,25 +45,118 @@ app.add_middleware(
 # Thread-local storage for models
 thread_local_data = threading.local()
 
+# class ThreadSafeModelLoader:
+#     """Thread-safe model loader that creates separate model instances per thread"""
+    
+#     def __init__(self):
+#         self.plant_type_classes = []
+#         self.disease_classes = {}
+#         self.models_loaded = False
+#         self.model_path = None
+#         self._lock = threading.Lock()
+        
+#     def load_class_mappings(self, model_path):
+#         """Load class mappings once (thread-safe)"""
+#         with self._lock:
+#             if self.models_loaded:
+#                 return True
+                
+#             class_mappings_path = model_path / 'class_mappings.json'
+#             if not class_mappings_path.exists():
+#                 print(f"Class mappings file not found at: {class_mappings_path}")
+#                 return False
+                
+#             try:
+#                 with open(class_mappings_path) as f:
+#                     mappings = json.load(f)
+                
+#                 self.plant_type_classes = mappings['plant_types']
+#                 self.disease_classes = mappings['disease_classes']
+#                 self.model_path = model_path
+#                 self.models_loaded = True
+#                 print(f"Class mappings loaded: {self.plant_type_classes}")
+#                 return True
+#             except Exception as e:
+#                 print(f"Failed to load class mappings: {e}")
+#                 return False
+    
+#     def get_thread_models(self):
+#         """Get or create models for current thread"""
+#         if not hasattr(thread_local_data, 'plant_classifier'):
+#             if not self.models_loaded:
+#                 return None, {}
+                
+#             print(f"Loading models for thread {threading.current_thread().ident}")
+            
+#             # Load plant classifier for this thread
+#             plant_model_path = self.model_path / 'plant_type_classifier.keras'
+#             if plant_model_path.exists():
+#                 try:
+#                     thread_local_data.plant_classifier = tf.keras.models.load_model(
+#                         plant_model_path, compile=False
+#                     )
+#                     print("Plant classifier loaded for thread")
+#                 except Exception as e:
+#                     print(f"Failed to load plant classifier for thread: {e}")
+#                     thread_local_data.plant_classifier = None
+#             else:
+#                 thread_local_data.plant_classifier = None
+            
+#             # Load disease classifiers for this thread
+#             thread_local_data.disease_classifiers = {}
+#             for plant_type in self.plant_type_classes:
+#                 model_file = self.model_path / f'{plant_type}_disease_classifier.keras'
+#                 if model_file.exists():
+#                     try:
+#                         disease_model = tf.keras.models.load_model(
+#                             model_file, compile=False
+#                         )
+#                         thread_local_data.disease_classifiers[plant_type] = {
+#                             'model': disease_model,
+#                             'class_names': self.disease_classes[plant_type]
+#                         }
+#                         print(f"Disease classifier for {plant_type} loaded for thread")
+#                     except Exception as e:
+#                         print(f"Failed to load disease classifier for {plant_type} in thread: {e}")
+        
+#         return getattr(thread_local_data, 'plant_classifier', None), \
+#                getattr(thread_local_data, 'disease_classifiers', {})
+
 class ThreadSafeModelLoader:
-    """Thread-safe model loader that creates separate model instances per thread"""
+    """Thread-safe model loader that handles missing models gracefully"""
     
     def __init__(self):
         self.plant_type_classes = []
         self.disease_classes = {}
-        self.models_loaded = False
+        self.models_available = False  # Changed from models_loaded
         self.model_path = None
         self._lock = threading.Lock()
         
     def load_class_mappings(self, model_path):
-        """Load class mappings once (thread-safe)"""
+        """Load class mappings only"""
         with self._lock:
-            if self.models_loaded:
-                return True
-                
             class_mappings_path = model_path / 'class_mappings.json'
             if not class_mappings_path.exists():
                 print(f"Class mappings file not found at: {class_mappings_path}")
+                # Try alternative paths
+                alt_paths = [
+                    Path("./hierarchical_models_v2/class_mappings.json"),
+                    Path("./models/class_mappings.json"),
+                    Path(__file__).parent / "hierarchical_models_v2" / "class_mappings.json"
+                ]
+                
+                for alt_path in alt_paths:
+                    if alt_path.exists():
+                        class_mappings_path = alt_path
+                        print(f"Found class mappings at: {alt_path}")
+                        break
+            
+            if not class_mappings_path.exists():
+                print("No class mappings file found. Running in online-only mode.")
+                self.plant_type_classes = ["unknown"]
+                self.disease_classes = {"unknown": ["unknown"]}
+                self.model_path = model_path
+                self.models_available = False
                 return False
                 
             try:
@@ -73,19 +166,30 @@ class ThreadSafeModelLoader:
                 self.plant_type_classes = mappings['plant_types']
                 self.disease_classes = mappings['disease_classes']
                 self.model_path = model_path
-                self.models_loaded = True
+                
+                # Check if model files actually exist
+                plant_model_path = self.model_path / 'plant_type_classifier.keras'
+                if plant_model_path.exists():
+                    self.models_available = True
+                    print(f"✅ Models available at: {plant_model_path}")
+                else:
+                    self.models_available = False
+                    print(f"⚠️ Model files not found at: {plant_model_path}")
+                    print("Running in online-only mode. Models will be downloaded when needed.")
+                
                 print(f"Class mappings loaded: {self.plant_type_classes}")
-                return True
+                return self.models_available
             except Exception as e:
                 print(f"Failed to load class mappings: {e}")
+                self.models_available = False
                 return False
     
     def get_thread_models(self):
-        """Get or create models for current thread"""
-        if not hasattr(thread_local_data, 'plant_classifier'):
-            if not self.models_loaded:
-                return None, {}
+        """Get or create models for current thread - returns None if not available"""
+        if not self.models_available:
+            return None, {}
                 
+        if not hasattr(thread_local_data, 'plant_classifier'):
             print(f"Loading models for thread {threading.current_thread().ident}")
             
             # Load plant classifier for this thread
@@ -95,32 +199,37 @@ class ThreadSafeModelLoader:
                     thread_local_data.plant_classifier = tf.keras.models.load_model(
                         plant_model_path, compile=False
                     )
-                    print("Plant classifier loaded for thread")
+                    print("✅ Plant classifier loaded for thread")
                 except Exception as e:
-                    print(f"Failed to load plant classifier for thread: {e}")
+                    print(f"❌ Failed to load plant classifier: {e}")
                     thread_local_data.plant_classifier = None
+                    self.models_available = False
             else:
+                print(f"❌ Model file not found: {plant_model_path}")
                 thread_local_data.plant_classifier = None
+                self.models_available = False
             
             # Load disease classifiers for this thread
             thread_local_data.disease_classifiers = {}
-            for plant_type in self.plant_type_classes:
-                model_file = self.model_path / f'{plant_type}_disease_classifier.keras'
-                if model_file.exists():
-                    try:
-                        disease_model = tf.keras.models.load_model(
-                            model_file, compile=False
-                        )
-                        thread_local_data.disease_classifiers[plant_type] = {
-                            'model': disease_model,
-                            'class_names': self.disease_classes[plant_type]
-                        }
-                        print(f"Disease classifier for {plant_type} loaded for thread")
-                    except Exception as e:
-                        print(f"Failed to load disease classifier for {plant_type} in thread: {e}")
+            if thread_local_data.plant_classifier:
+                for plant_type in self.plant_type_classes:
+                    model_file = self.model_path / f'{plant_type}_disease_classifier.keras'
+                    if model_file.exists():
+                        try:
+                            disease_model = tf.keras.models.load_model(
+                                model_file, compile=False
+                            )
+                            thread_local_data.disease_classifiers[plant_type] = {
+                                'model': disease_model,
+                                'class_names': self.disease_classes[plant_type]
+                            }
+                            print(f"✅ Disease classifier for {plant_type} loaded")
+                        except Exception as e:
+                            print(f"❌ Failed to load disease classifier for {plant_type}: {e}")
         
         return getattr(thread_local_data, 'plant_classifier', None), \
                getattr(thread_local_data, 'disease_classifiers', {})
+
 
 # Global thread-safe model loader
 model_loader = ThreadSafeModelLoader()
