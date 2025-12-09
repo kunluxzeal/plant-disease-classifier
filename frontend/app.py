@@ -600,7 +600,7 @@ st.markdown("""
 if 'predictions' not in st.session_state:
     st.session_state.predictions = []
 if 'backend_url' not in st.session_state:
-    st.session_state.backend_url = "http://localhost:8000"
+    st.session_state.backend_url = "https://plant-disease-classifier-7.onrender.com"
 if 'last_analysis' not in st.session_state:
     st.session_state.last_analysis = None
 
